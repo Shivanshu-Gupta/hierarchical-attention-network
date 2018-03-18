@@ -82,10 +82,6 @@ class HAN(nn.Module):
     def __init__(self, vocab_size, word_emb_dim=100, gru_hidden_dim=50, emb_dim=100, output_dim=3, batch_size=64, use_gpu=True):
         super(HAN, self).__init__()
         self.use_gpu = use_gpu
-        # self.sent_embedding = SentenceEmbedding(vocab_size, embedding_dim=word_emb_dim, hidden_dim=gru_hidden_dim,
-        #                                         output_dim=emb_dim, bidirectional=True)
-        # self.doc_embedding = DocumentEmbedding(batch_size=batch_size, input_dim=emb_dim, hidden_dim=gru_hidden_dim,
-        #                                        output_dim=emb_dim, bidirectional=True)
         self.word_embedding = nn.Embedding(vocab_size, word_emb_dim, padding_idx=1)
         self.sent_embedding = AttendedSequenceEmbedding(input_dim=word_emb_dim, hidden_dim=gru_hidden_dim,
                                                         output_dim=emb_dim, bidirectional=True)
