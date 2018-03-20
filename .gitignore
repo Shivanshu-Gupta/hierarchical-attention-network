@@ -107,3 +107,5 @@ audio_dev_dataset.json
 audio_dev_preprocessed.json
 audio_train_preprocessed.json
 run.sh
+logs/
+scratch

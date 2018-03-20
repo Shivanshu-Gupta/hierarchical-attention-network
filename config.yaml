@@ -1,0 +1,38 @@
+prefix: han
+verbose: True
+mode: 'train'
+save_dir: 'scratch/checkpoints/'
+use_gpu: True
+debug: False
+seed: 23443521
+data:
+    preprocess: False
+    dir: 'scratch'
+    review_vocab: 'review_vocab.pkl'
+    summary_vocab: 'summary_vocab.pkl'
+    train:
+        jsonfile: 'audio_train_dataset.json'
+        batch_size: 32
+    val:
+        jsonfile: 'audio_dev_dataset.json'
+        batch_size: 32
+    # workers: 1
+model:
+    params:
+        word_emb_dim: 100
+        gru_hidden_dim: 50
+        emb_dim: 100
+    reload: 'checkpoints.pth.tar'
+
+optim:
+    class: sgd      #sgd/rmsprop/adam
+    params: 
+        momentum: 0.9
+        lr: 0.01      # learning rate
+        # alpha: 0.99     # alpha for adagrad/rmsprop/momentum/adam
+        # beta: 0.995     # beta used for adam
+        # eps: 0.00001       # epsilon that goes into denominator in rmsprop
+        weight_decay: 0.0005
+training:
+    n_epochs: 100
+    start_from_checkpoint: True
