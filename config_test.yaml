@@ -1,0 +1,21 @@
+prefix: han
+verbose: True
+mode: 'test'
+save_dir: ''
+use_gpu: True
+debug: False
+seed: 23443521
+data:
+    dir: ''
+    review_vocab: 'review_vocab-100.pkl'        # NOTE: change to review_vocab.pkl for submission
+    summary_vocab: 'summary_vocab-100.pkl'      # NOTE: change to summary_vocab.pkl for submission
+    test:
+        jsonfile: 'audio_train-100.json.preprocessed'
+        batch_size: 32
+model:
+    params:
+        word_emb_dim: 200
+        gru_hidden_dim: 50
+        emb_dim: 100
+        use_summary: True
+    reload: 'model_best.pth.tar'

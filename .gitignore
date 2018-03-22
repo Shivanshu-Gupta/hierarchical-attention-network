@@ -109,3 +109,10 @@ audio_train_preprocessed.json
 run.sh
 logs/
 scratch
+.vector_cache/
+hpc_scripts/
+model_best.pth.tar
+results.txt
+review_vocab-100.pkl
+summary_vocab-100.pkl
+config.yaml

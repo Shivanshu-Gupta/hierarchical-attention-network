@@ -21,15 +21,17 @@ class ReviewsDataset(Dataset):
         return len(self.reviews)
 
     def __getitem__(self, idx):
-        stoi = self.review_vocab.stoi
         review = self.reviews[idx]
+        summary = self.summaries[idx]
         target = self.targets[idx]
-        numerical = [[stoi[w] for w in sent] for sent in review if len(sent) > 0]
-        return numerical, target
+        review = [[self.review_vocab.stoi[w] for w in sent] for sent in review if len(sent) > 0]
+        summary = [self.summary_vocab.stoi[w] for w in summary]
+        return review, summary, target
 
-    def get_sampler(self):
-        class_sample_count = np.unique(self.targets, return_counts=True)[1]
-        weight = 1. / class_sample_count
+    def get_sampler(self, weight=None):
+        if weight is None:
+            class_sample_count = np.unique(self.targets, return_counts=True)[1]
+            weight = 1. / class_sample_count
         sample_weights = torch.from_numpy(weight[self.targets])
         sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
         return sampler
