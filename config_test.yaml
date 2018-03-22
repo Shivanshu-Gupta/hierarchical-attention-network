@@ -7,15 +7,17 @@ debug: False
 seed: 23443521
 data:
     dir: ''
-    review_vocab: 'review_vocab-100.pkl'        # NOTE: change to review_vocab.pkl for submission
-    summary_vocab: 'summary_vocab-100.pkl'      # NOTE: change to summary_vocab.pkl for submission
+    review_vocab: 'comb_vocab_pruned-10000.pkl'        # NOTE: change to review_vocab.pkl for submission
+    summary_vocab: 'comb_vocab_pruned-10000.pkl'      # NOTE: change to summary_vocab.pkl for submission
     test:
-        jsonfile: 'audio_train-100.json.preprocessed'
+        jsonfile: 'audio_train.json.preprocessed'
         batch_size: 32
 model:
     params:
         word_emb_dim: 200
-        gru_hidden_dim: 50
+        rnn_hidden_dim: 50
         emb_dim: 100
         use_summary: True
+        combined_lookup: True
+        lstm: True
     reload: 'model_best.pth.tar'
