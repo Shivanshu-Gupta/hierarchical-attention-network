@@ -96,7 +96,7 @@ def build_model(config, review_vocab, summary_vocab, logfile=None):
 
 def main(config):
     logfile = join(config['save_dir'], 'log')
-    log(config)
+    log(config, logfile)
     if config['mode'] == 'test':
         phases = ['test']
     else:
@@ -122,11 +122,12 @@ def main(config):
         step_size = config['optim']['scheduler']['step']
         gamma = config['optim']['scheduler']['gamma']
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
-        log("begin training", logfile)
+        log("Begin Training...", logfile)
         model = train_model(model, dataloaders, criterion, optimizer, exp_lr_scheduler, save_dir,
                             num_epochs=config['training']['n_epochs'], use_gpu=config['use_gpu'],
                             best_fscore=best_fscore, start_epoch=start_epoch, logfile=logfile)
     elif config['mode'] == 'test':
+        log('Testing on {}...'.format(config['data']['test']['jsonfile']))
         test_model(model, dataloaders['test'], config['outputfile'], use_gpu=config['use_gpu'], logfile=logfile)
     else:
         log("Invalid config mode %s !!" % config['mode'], logfile)

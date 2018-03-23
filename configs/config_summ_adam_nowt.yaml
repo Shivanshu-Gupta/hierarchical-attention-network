@@ -1,7 +1,7 @@
 prefix: han
 verbose: True
 mode: 'train'
-save_dir: 'scratch/checkpoints/summ_adam_wt441'
+save_dir: 'scratch/checkpoints/summ_adam_nowt'
 use_gpu: True
 debug: False
 seed: 23443521
@@ -16,7 +16,7 @@ data:
     val:
         jsonfile: 'audio_dev.json.preprocessed'
         batch_size: 32
-    fixed_weights: True
+    weights: False
 model:
     params:
         word_emb_dim: 200

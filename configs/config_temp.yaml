@@ -8,26 +8,24 @@ seed: 23443521
 data:
     preprocess: False
     dir: 'scratch'
-    review_vocab: 'review_vocab-100.pkl'
-    summary_vocab: 'summary_vocab-100.pkl'
+    review_vocab: 'comb_vocab_pruned-10000.pkl'
+    summary_vocab: 'comb_vocab_pruned-10000.pkl'
     train:
-        jsonfile: 'audio_train-100.json.preprocessed'
+        jsonfile: 'audio_train-10000.json.preprocessed'
         batch_size: 32
     val:
-        jsonfile: 'audio_train-100.json.preprocessed'
+        jsonfile: 'audio_dev-10000.json.preprocessed'
         batch_size: 32
-    test:
-        jsonfile: 'audio_train-100.json.preprocessed'
-        batch_size: 32
-    # workers: 1
+    weights: [4.0, 4.0, 1.0]
 model:
     params:
         word_emb_dim: 200
-        gru_hidden_dim: 50
+        rnn_hidden_dim: 50
         emb_dim: 100
         use_summary: True
+        combined_lookup: True
+        lstm: True
     reload: 'checkpoint.pth.tar'
-
 optim:
     class: adam      #sgd/rmsprop/adam
     params: 
@@ -36,6 +34,9 @@ optim:
         # beta: 0.995     # beta used for adam
         # eps: 0.00001       # epsilon that goes into denominator in rmsprop
         weight_decay: 0.0005
+    scheduler:
+        step: 2
+        gamma: 0.4
 training:
     n_epochs: 35
     start_from_checkpoint: True

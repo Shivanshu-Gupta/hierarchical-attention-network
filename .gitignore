@@ -104,15 +104,22 @@ ENV/
 text/
 
 audio_dev_dataset.json
-audio_dev_preprocessed.json
-audio_train_preprocessed.json
-run.sh
+audio_dev_preprocessed*.json
+audio_train_preprocessed*.json
+
 logs/
 scratch
+
+# Torchtext Vector cache
 .vector_cache/
+
+
+config.yaml
 hpc_scripts/
 model_best.pth.tar
 results.txt
-review_vocab-100.pkl
-summary_vocab-100.pkl
-config.yaml
+
+# Vocabulary pickles
+review_vocab*.pkl
+summary_vocab*.pkl
+comb_vocab_pruned-10000.pkl

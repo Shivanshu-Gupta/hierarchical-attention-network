@@ -30,10 +30,11 @@ class AttendedSeqEmbedding(nn.Module):
         self.use_gpu = use_gpu
         self.batch_first = batch_first
         self.input_dim = input_dim
+        self.lstm = lstm
         if not lstm:
-            self.rnn = nn.GRU(input_size=input_dim, hidden_size=hidden_dim, bidirectional=bidirectional, batch_first=self.batch_first)
+            self.gru = nn.GRU(input_size=input_dim, hidden_size=hidden_dim, bidirectional=bidirectional, batch_first=self.batch_first)
         else:
-            self.rnn = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, bidirectional=bidirectional, batch_first=self.batch_first)
+            self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, bidirectional=bidirectional, batch_first=self.batch_first)
         if bidirectional:
             rnn_output_dim = 2 * hidden_dim
         else:
@@ -63,8 +64,12 @@ class AttendedSeqEmbedding(nn.Module):
 
         packed_input = pack_padded_sequence(padded_inputs, seqlens, batch_first=self.batch_first)
         # print(packed_input)
-        self.rnn.flatten_parameters()
-        packed_output, _ = self.rnn(packed_input)
+        if not self.lstm:
+            self.gru.flatten_parameters()
+            packed_output, _ = self.gru(packed_input)
+        else:
+            self.lstm.flatten_parameters()
+            packed_output, _ = self.lstm(packed_input)
         padded_outputs, _ = pad_packed_sequence(packed_output, batch_first=self.batch_first)
 
         # TODO: Check if applying attention after splitting output is faster.
@@ -106,9 +111,9 @@ class HAN(nn.Module):
             if not combined_lookup:
                 self.summary_lookup = nn.Embedding(summary_vocab_size, word_emb_dim, padding_idx=1)
             if not lstm:
-                self.summary_rnn = nn.GRU(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
+                self.summary_gru = nn.GRU(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
             else:
-                self.summary_rnn = nn.LSTM(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
+                self.summary_lstm = nn.LSTM(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
             self.empty_summary_emb = nn.Parameter(torch.Tensor(emb_dim))
             self.classifier = nn.Linear(emb_dim * 2, output_dim)
         else:
@@ -131,11 +136,12 @@ class HAN(nn.Module):
 
         packed_input = pack_padded_sequence(padded_inputs, summary_lengths, batch_first=True)
         # print(packed_input)
-        self.summary_rnn.flatten_parameters()
         if not self.lstm:
-            _, h = self.summary_rnn(packed_input)
+            self.summary_gru.flatten_parameters()
+            _, h = self.summary_gru(packed_input)
         else:
-            _, (h, _) = self.summary_rnn(packed_input)
+            self.summary_lstm.flatten_parameters()
+            _, (h, _) = self.summary_lstm(packed_input)
         summary_embs = torch.cat([h[0], h[1]], dim=1)
         orig_indices = [0] * indices.shape[0]
         for i in range(indices.shape[0]):
