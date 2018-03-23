@@ -153,11 +153,12 @@ def train_model(model, data_loaders, criterion, optimizer, scheduler, save_dir, 
             'acc': val_acc,
             'fscore': val_fscore,
             'state_dict': model.state_dict(),
-            # 'optimizer': optimizer.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'model_version': model.__version__()
         }, is_best)
 
-        writer.export_scalars_to_json(save_dir + "/all_scalars.json")
-        scheduler.step()
+        writer.export_scalars_to_json(join(save_dir, 'all_scalars.json'))
+        scheduler.step(1 - val_fscore)
 
     time_elapsed = time.time() - since
     log('Training complete in {:.0f}m {:.0f}s'.format(
@@ -168,7 +169,7 @@ def train_model(model, data_loaders, criterion, optimizer, scheduler, save_dir, 
     model.load_state_dict(best_model_wts)
 
     # export scalar data to JSON for external processing
-    writer.export_scalars_to_json(save_dir + "/all_scalars.json")
+    writer.export_scalars_to_json(join(save_dir, 'all_scalars.json'))
     writer.close()
 
     return model

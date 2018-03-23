@@ -123,3 +123,4 @@ results.txt
 review_vocab*.pkl
 summary_vocab*.pkl
 comb_vocab_pruned-10000.pkl
+configs_old

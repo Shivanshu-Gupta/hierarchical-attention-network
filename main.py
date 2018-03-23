@@ -12,7 +12,7 @@ from IPython.core.debugger import Pdb
 # from preprocess import preprocess
 from dataset import ReviewsDataset
 from train import train_model, test_model
-from model import HAN
+from model2 import HAN
 from utils import log
 
 parser = argparse.ArgumentParser()
@@ -83,6 +83,9 @@ def build_model(config, review_vocab, summary_vocab, logfile=None):
         if exists(reloadPath):
             log("=> loading checkpoint/model found at '{0}'".format(reloadPath), logfile)
             checkpoint = torch.load(reloadPath)
+            if model.__version__() != checkpoint['model_version']:
+                log('Model version mismatch: current version={}, checkpoint version={}'
+                    .format(model.__version__(), checkpoint['model_version']))
             start_epoch = checkpoint['epoch']
             best_fscore = checkpoint['fscore']
             model.load_state_dict(checkpoint['state_dict'])
@@ -118,12 +121,15 @@ def main(config):
         else:
             optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                                    **config['optim']['params'])
+        log(optimizer, logfile)
         criterion = nn.CrossEntropyLoss()
-        step_size = config['optim']['scheduler']['step']
-        gamma = config['optim']['scheduler']['gamma']
-        exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+        patience = config['optim']['scheduler']['patience']
+        factor = config['optim']['scheduler']['factor']
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=patience, factor=factor,
+                                                   threshold=0.05, threshold_mode='rel', verbose=True)
+        log(scheduler, logfile)
         log("Begin Training...", logfile)
-        model = train_model(model, dataloaders, criterion, optimizer, exp_lr_scheduler, save_dir,
+        model = train_model(model, dataloaders, criterion, optimizer, scheduler, save_dir,
                             num_epochs=config['training']['n_epochs'], use_gpu=config['use_gpu'],
                             best_fscore=best_fscore, start_epoch=start_epoch, logfile=logfile)
     elif config['mode'] == 'test':

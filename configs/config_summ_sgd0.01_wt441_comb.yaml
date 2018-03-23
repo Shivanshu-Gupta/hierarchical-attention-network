@@ -1,15 +1,15 @@
 prefix: han
 verbose: True
 mode: 'train'
-save_dir: 'scratch/checkpoints/summ_sgd0.01_wt441'
+save_dir: 'scratch/checkpoints/summ_sgd0.01_wt441_comb'
 use_gpu: True
 debug: False
 seed: 23443521
 data:
     preprocess: False
     dir: 'scratch'
-    review_vocab: 'review_vocab.pkl'
-    summary_vocab: 'summary_vocab.pkl'
+    review_vocab: 'comb_vocab_pruned.pkl'
+    summary_vocab: 'comb_vocab_pruned.pkl'
     train:
         jsonfile: 'audio_train.json.preprocessed'
         batch_size: 32

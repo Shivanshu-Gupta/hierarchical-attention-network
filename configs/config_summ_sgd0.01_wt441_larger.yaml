@@ -1,7 +1,7 @@
 prefix: han
 verbose: True
 mode: 'train'
-save_dir: 'scratch/checkpoints/summ_sgd0.01_wt441'
+save_dir: 'scratch/checkpoints/summ_adam_wt441_larger_lstm'
 use_gpu: True
 debug: False
 seed: 23443521
@@ -20,14 +20,14 @@ data:
 model:
     params:
         word_emb_dim: 200
-        rnn_hidden_dim: 50
-        emb_dim: 100
+        rnn_hidden_dim: 100
+        emb_dim: 200
         use_summary: True
     reload: 'checkpoint.pth.tar'
+
 optim:
     class: sgd      #sgd/rmsprop/adam
     params: 
-        momentum: 0.9
         lr: 0.01      # learning rate
         # alpha: 0.99     # alpha for adagrad/rmsprop/momentum/adam
         # beta: 0.995     # beta used for adam

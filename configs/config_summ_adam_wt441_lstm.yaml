@@ -1,7 +1,7 @@
 prefix: han
 verbose: True
 mode: 'train'
-save_dir: 'scratch/checkpoints/summ_adam_wt441_lstm_2'
+save_dir: 'scratch/checkpoints/summ_adam_wt441_lstm'
 use_gpu: True
 debug: False
 seed: 23443521
@@ -23,7 +23,7 @@ model:
         rnn_hidden_dim: 50
         emb_dim: 100
         use_summary: True
-        lstm: True
+        rnn_type: 'lstm'
     reload: 'checkpoint.pth.tar'
 
 optim:
@@ -35,8 +35,8 @@ optim:
         # eps: 0.00001       # epsilon that goes into denominator in rmsprop
         weight_decay: 0.0005
     scheduler:
-        step: 7
-        gamma: 0.4
+        factor: 0.4
+        patience: 3
 training:
     n_epochs: 5
     start_from_checkpoint: True

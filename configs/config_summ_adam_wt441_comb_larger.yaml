@@ -1,12 +1,11 @@
 prefix: han
 verbose: True
 mode: 'train'
-save_dir: 'scratch/checkpoints/summ_adam_wt441_comb_larger_2'
+save_dir: 'scratch/checkpoints/summ_adam_wt441_comb_larger'
 use_gpu: True
 debug: False
 seed: 23443521
 data:
-    preprocess: False
     dir: 'scratch'
     review_vocab: 'comb_vocab_pruned.pkl'
     summary_vocab: 'comb_vocab_pruned.pkl'
@@ -24,6 +23,7 @@ model:
         emb_dim: 200
         use_summary: True
         combined_lookup: True
+        rnn: 'gru'
     reload: 'checkpoint.pth.tar'
 optim:
     class: adam      #sgd/rmsprop/adam
@@ -34,8 +34,8 @@ optim:
         # eps: 0.00001       # epsilon that goes into denominator in rmsprop
         weight_decay: 0.0005
     scheduler:
-        step: 7
-        gamma: 0.4
+        factor: 0.4
+        patience: 3
 training:
     n_epochs: 5
     start_from_checkpoint: True
