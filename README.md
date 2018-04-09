@@ -8,16 +8,23 @@ correspond to ratings 4-5, 1-2 and 3 respectively in the dataset.
 - python 3.5
 - [pytorch]
 - [torchtext]
+- [spacy]
 
 ## Organisation
-The code in the repository are organised as follows:
-- *main.py*: driver code
-- *model.py*: Hierachical Attention Network implementation
-- *train.py*: training/validation/testing code
-- *preprocess.py*: data preprocessing code
-- *vocab.py*: code for building vocab
-- *dataset.py*: custom pytorch dataset for review data
-- *utils.py*: logging, config generation, experiment analysis scripts
+The code in the repository are organised in following modules:
+- **main.py**: driver code
+- **model.py**: Hierachical Attention Network implementation
+- **train.py**: training/validation/testing code
+- **preprocess.py**: data preprocessing code
+- **vocab.py**: code for building vocab
+- **dataset.py**: custom pytorch dataset for review data
+- **utils.py**: logging, config generation, experiment analysis scripts
+
+Following utility scripts have been added for training/testing:
+- **train.sh**: will clean and preprocess train data, generate vocabulary pickles, 
+and then train the model on the preprocessed data.
+- **test.sh**: clean and preprocess test data, evaluate model on the preprocessed 
+data and write model predictions to file.
 
 ## Usage
 ```sh
@@ -35,4 +42,4 @@ $ ./test.sh <test_data_json> <result_file>
 [Amazon Product Reviews]: http://jmcauley.ucsd.edu/data/amazon/
 [pytorch]: http://pytorch.org/
 [torchtext]: https://github.com/pytorch/text
-
+[spacy]: https://spacy.io/
