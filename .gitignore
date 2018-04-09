@@ -101,26 +101,19 @@ ENV/
 .mypy_cache/
 
 # torchtext repo
-text/
-
-audio_dev_dataset.json
-audio_dev_preprocessed*.json
-audio_train_preprocessed*.json
-
-logs/
-scratch
+torchtext/
 
 # Torchtext Vector cache
-.vector_cache/
+.vector_cache
 
-
-config.yaml
-hpc_scripts/
+hpc_scripts
 model_best.pth.tar
 results.txt
 
-# Vocabulary pickles
-review_vocab*.pkl
-summary_vocab*.pkl
-comb_vocab_pruned-10000.pkl
-configs_old
+# symlinks
+*vocab*.pkl
+model_best.pth.tar
+scratch
+submission
+
+configs

@@ -24,21 +24,37 @@ class AttentionModule(nn.Module):
         return attended_output
 
 
+def pack(sequences, seqlens, use_gpu):
+    assert(np.count_nonzero(seqlens) == seqlens.shape[0])
+    # pad inputs
+    padded_inputs = Variable(torch.zeros(seqlens.shape[0], int(seqlens.max()), sequences.size(1)))
+    if use_gpu:
+        padded_inputs = padded_inputs.cuda()
+    begin = 0
+    for idx, length in enumerate(seqlens):
+        padded_inputs[idx, :length] = sequences[begin:begin + length]
+        begin += length
+    indices = np.argsort(-seqlens)
+    seqlens = seqlens[indices]
+    padded_inputs = padded_inputs[torch.LongTensor(indices).cuda()]
+    packed_input = pack_padded_sequence(padded_inputs, seqlens, batch_first=True)
+    return packed_input, indices
+
+
 class AttendedSeqEmbedding(nn.Module):
-    def __init__(self, input_dim=100, hidden_dim=50, output_dim=100, bidirectional=True, lstm=False, use_gpu=True, batch_first=True):
+    def __init__(self, input_dim=100, hidden_dim=50, output_dim=100,
+                 rnn_type='gru', use_gpu=True, batch_first=True):
         super(AttendedSeqEmbedding, self).__init__()
         self.use_gpu = use_gpu
+        self.rnn_type = rnn_type
+        if rnn_type == 'lstm':
+            self.rnn = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=batch_first)
+        else:
+            self.rnn = nn.GRU(input_size=input_dim, hidden_size=hidden_dim, bidirectional=True, batch_first=batch_first)
         self.batch_first = batch_first
         self.input_dim = input_dim
-        self.lstm = lstm
-        if not lstm:
-            self.gru = nn.GRU(input_size=input_dim, hidden_size=hidden_dim, bidirectional=bidirectional, batch_first=self.batch_first)
-        else:
-            self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, bidirectional=bidirectional, batch_first=self.batch_first)
-        if bidirectional:
-            rnn_output_dim = 2 * hidden_dim
-        else:
-            rnn_output_dim = hidden_dim
+        self.rnn_type = rnn_type
+        rnn_output_dim = 2 * hidden_dim
         self.mlp = nn.Sequential(
             nn.Linear(rnn_output_dim, output_dim),
             nn.Tanh())
@@ -46,52 +62,36 @@ class AttendedSeqEmbedding(nn.Module):
         self.context_vector.data.normal_(0, 0.1)
 
     def forward(self, sequences, seqlens):
-        # print(seqlens)
-        assert(sequences.size() == (seqlens.sum(), self.input_dim))
-        padded_inputs = Variable(torch.zeros(len(seqlens), int(seqlens.max()), self.input_dim))
-        if self.use_gpu:
-            padded_inputs = padded_inputs.cuda()
-        begin_idx = 0
-        for idx, length in enumerate(seqlens):
-            if length > 0:
-                padded_inputs[idx, :length] = sequences[begin_idx:begin_idx + length]
-            begin_idx += length
-        # print(padded_inputs.shape)
-        indices = np.argsort(-seqlens)
-        # Pdb().set_trace()
-        seqlens = seqlens[indices]
-        padded_inputs = padded_inputs[torch.LongTensor(indices).cuda()]
+        packed_input, indices = pack(sequences, seqlens, self.use_gpu)
+        # self.rnn.flatten_parameters()
+        packed_output, _ = self.rnn(packed_input)
+        padded_outputs, sorted_seqlens = pad_packed_sequence(packed_output, batch_first=self.batch_first)
 
-        packed_input = pack_padded_sequence(padded_inputs, seqlens, batch_first=self.batch_first)
-        # print(packed_input)
-        if not self.lstm:
-            self.gru.flatten_parameters()
-            packed_output, _ = self.gru(packed_input)
-        else:
-            self.lstm.flatten_parameters()
-            packed_output, _ = self.lstm(packed_input)
-        padded_outputs, _ = pad_packed_sequence(packed_output, batch_first=self.batch_first)
+        # undo sort
+        # padded_outputs = padded_outputs[torch.LongTensor(orig_indices).cuda()]
 
-        # TODO: Check if applying attention after splitting output is faster.
-        padded_outputs = self.mlp(padded_outputs)
+        # apply attention
+        # mlp_input = torch.cat([padded_outputs[i, :seqlens[i]] for i in range(len(seqlens))], dim=0)
+        # mlp_output = self.mlp(mlp_input)
+        mlp_output = self.mlp(padded_outputs)
+        attn_weight = mlp_output.matmul(self.context_vector)
+        # end = np.cumsum(seqlens)
+        attended_outputs = torch.stack([F.softmax(attn_weight[i, :length], dim=0).matmul(padded_outputs[i, :length]) for i, length in enumerate(sorted_seqlens)], dim=0)
 
         # undo sort
         orig_indices = [0] * indices.shape[0]
         for i in range(indices.shape[0]):
             orig_indices[indices[i]] = i
-        padded_outputs = padded_outputs[torch.LongTensor(orig_indices).cuda()]
-        seqlens = seqlens[orig_indices]
+        attended_outputs = attended_outputs[torch.LongTensor(orig_indices).cuda()]
 
-        # apply attention
-        outputs = [padded_outputs[i, :seqlens[i]] for i in range(padded_outputs.size(0))]
-        attn_weights = [F.softmax(output.matmul(self.context_vector), dim=0) for output in outputs]
-        attended_outputs = [attn_weight.matmul(output) for attn_weight, output in zip(attn_weights, outputs)]
-        attended_outputs = torch.stack(attended_outputs)
         return attended_outputs
 
 
 class HAN(nn.Module):
-    def __init__(self, review_vocab_size, summary_vocab_size, word_emb_dim=100, rnn_hidden_dim=50, emb_dim=100, output_dim=3, use_summary=True, combined_lookup=False, lstm=False, batch_size=64, use_gpu=True):
+    def __version__(self):
+        return '2.1.0'
+
+    def __init__(self, review_vocab_size, summary_vocab_size, word_emb_dim=100, rnn_hidden_dim=50, emb_dim=100, output_dim=3, use_summary=True, combined_lookup=False, rnn_type='gru', use_summ_mlp=False, batch_size=64, use_gpu=True):
         super(HAN, self).__init__()
         self.use_gpu = use_gpu
         self.word_emb_dim = word_emb_dim
@@ -99,78 +99,74 @@ class HAN(nn.Module):
         # Review Embedding
         self.review_lookup = nn.Embedding(review_vocab_size, word_emb_dim, padding_idx=1)
         self.review_sent_emb = AttendedSeqEmbedding(input_dim=word_emb_dim, hidden_dim=rnn_hidden_dim,
-                                                    output_dim=emb_dim, bidirectional=True, lstm=lstm)
+                                                    output_dim=emb_dim, rnn_type=rnn_type)
         self.review_emb = AttendedSeqEmbedding(input_dim=emb_dim, hidden_dim=rnn_hidden_dim,
-                                               output_dim=emb_dim, bidirectional=True, lstm=lstm)
+                                               output_dim=emb_dim, rnn_type=rnn_type)
         self.empty_review_emb = nn.Parameter(torch.Tensor(emb_dim))
+        self.empty_review_emb.data.normal_(0, 0.1)
+
+        # Summary Embedding if required and classifier
         self.use_summary = use_summary
         self.combined_lookup = combined_lookup
-        self.lstm = lstm
+        self.rnn_type = rnn_type
+        self.use_summ_mlp = use_summ_mlp
         if use_summary:
-            # Summary Embedding
             if not combined_lookup:
                 self.summary_lookup = nn.Embedding(summary_vocab_size, word_emb_dim, padding_idx=1)
-            if not lstm:
-                self.summary_gru = nn.GRU(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
             else:
-                self.summary_lstm = nn.LSTM(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
+                self.summary_lookup = self.review_lookup
+            if self.rnn_type == 'lstm':
+                self.summary_rnn = nn.LSTM(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
+            else:
+                self.summary_rnn = nn.GRU(input_size=word_emb_dim, hidden_size=rnn_hidden_dim, bidirectional=True, batch_first=True)
+            rnn_output_dim = 2 * rnn_hidden_dim
+            if self.use_summ_mlp:
+                self.summary_mlp = nn.Sequential(
+                    nn.Linear(rnn_output_dim, emb_dim),
+                    nn.Tanh())
             self.empty_summary_emb = nn.Parameter(torch.Tensor(emb_dim))
+            self.empty_summary_emb.data.normal_(0, 0.1)
             self.classifier = nn.Linear(emb_dim * 2, output_dim)
         else:
             self.classifier = nn.Linear(emb_dim, output_dim)
 
-    def summary_emb(self, summary_word_embs, summary_lengths):
-        padded_inputs = Variable(torch.zeros(len(summary_lengths), int(summary_lengths.max()), self.word_emb_dim))
-        if self.use_gpu:
-            padded_inputs = padded_inputs.cuda()
-        begin_idx = 0
-        for idx, length in enumerate(summary_lengths):
-            if length > 0:
-                padded_inputs[idx, :length] = summary_word_embs[begin_idx:begin_idx + length]
-            begin_idx += length
-        # print(padded_inputs.shape)
-        indices = np.argsort(-summary_lengths)
-        # print(indices)
-        summary_lengths = summary_lengths[indices]
-        padded_inputs = padded_inputs[torch.LongTensor(indices).cuda()]
-
-        packed_input = pack_padded_sequence(padded_inputs, summary_lengths, batch_first=True)
-        # print(packed_input)
-        if not self.lstm:
-            self.summary_gru.flatten_parameters()
-            _, h = self.summary_gru(packed_input)
+    def embed(self, sequences, seqlens, seq_emb, empty_seq_emb):
+        nonempty = (seqlens != 0).nonzero()
+        nonempty_seq_embs = seq_emb(sequences, seqlens[nonempty])
+        if np.count_nonzero(seqlens != 0) < len(seqlens):
+            seq_embs = Variable(torch.Tensor(len(seqlens), self.emb_dim))
+            if self.use_gpu:
+                seq_embs = seq_embs.cuda()
+            # Pdb().set_trace()
+            seq_embs[nonempty] = nonempty_seq_embs
+            empty = (seqlens == 0).nonzero()
+            seq_embs[empty] = empty_seq_emb.expand(len(empty[0]), self.emb_dim)
         else:
-            self.summary_lstm.flatten_parameters()
-            _, (h, _) = self.summary_lstm(packed_input)
-        summary_embs = torch.cat([h[0], h[1]], dim=1)
+            seq_embs = nonempty_seq_embs
+        return seq_embs
+
+    def summary_emb(self, summaries, summlens):
+        packed_input, indices = pack(summaries, summlens, self.use_gpu)
+        # self.summary_rnn.flatten_parameters()
+        _, h = self.summary_rnn(packed_input)
+        if self.rnn_type == 'lstm':
+            h = h[0]
+        summ_embs = torch.cat([h[0], h[1]], dim=1)
         orig_indices = [0] * indices.shape[0]
         for i in range(indices.shape[0]):
             orig_indices[indices[i]] = i
-        summary_embs = summary_embs[torch.LongTensor(orig_indices).cuda()]
-        summary_lengths = summary_lengths[orig_indices]
-        return summary_embs
+        summ_embs = summ_embs[torch.LongTensor(orig_indices).cuda()]
+        return summ_embs
 
     def compute_summary_embs(self, summaries):
         words = Variable(torch.LongTensor([word for summary in summaries for word in summary]))
         if self.use_gpu:
             words = words.cuda()
-        if not self.combined_lookup:
-            summary_word_embs = self.summary_lookup(words)
-        else:
-            summary_word_embs = self.review_lookup(words)
-        summary_lengths = np.array([len(summary) for summary in summaries])
-        nonempty_summaries = (summary_lengths != 0).nonzero()
-        nonempty_summary_embs = self.summary_emb(summary_word_embs, summary_lengths[nonempty_summaries])
-        if np.count_nonzero(summary_lengths != 0) < len(summary_lengths):
-            summary_embs = Variable(torch.Tensor(len(summaries), self.emb_dim))
-            if self.use_gpu:
-                summary_embs = summary_embs.cuda()
-            # Pdb().set_trace()
-            summary_embs[nonempty_summaries] = nonempty_summary_embs
-            empty_summaries = (summary_lengths == 0).nonzero()
-            summary_embs[empty_summaries] = self.empty_summary_emb.expand(len(empty_summaries[0]), self.emb_dim)
-        else:
-            summary_embs = nonempty_summary_embs
+        summ_word_embs = self.summary_lookup(words)
+        summlens = np.array([len(summary) for summary in summaries])
+        summary_embs = self.embed(summ_word_embs, summlens, self.summary_emb, self.empty_summary_emb)
+        if self.use_summ_mlp:
+            summary_embs = self.summary_mlp(summary_embs)
         return summary_embs
 
     def compute_review_embs(self, reviews):
@@ -179,34 +175,26 @@ class HAN(nn.Module):
             words = words.cuda()
         review_word_embs = self.review_lookup(words)
 
-        # sent_lengths is a list of list of #words in each sentence in each review
-        sent_lengths = np.array([len(sent) for review in reviews for sent in review])
-        review_sent_embs = self.review_sent_emb(review_word_embs, sent_lengths)
+        # sentlens is a list of list of #words in each sentence in each review
+        sentlens = np.array([len(sent) for review in reviews for sent in review])
+        review_sent_embs = self.review_sent_emb(review_word_embs, sentlens)
 
-        # review_lengths is a list of #sentences in each review
-        review_lengths = np.array([len(review) for review in reviews])
-        nonempty_reviews = (review_lengths != 0).nonzero()
-        nonempty_review_embs = self.review_emb(review_sent_embs, review_lengths[nonempty_reviews])
-        if np.count_nonzero(review_lengths != 0) < len(review_lengths):
-            review_embs = Variable(torch.Tensor(len(reviews), self.emb_dim))
-            if self.use_gpu:
-                review_embs = review_embs.cuda()
-            # Pdb().set_trace()
-            review_embs[nonempty_reviews] = nonempty_review_embs
-            empty_reviews = (review_lengths == 0).nonzero()
-            review_embs[empty_reviews] = self.empty_review_emb.expand(len(empty_reviews[0]), self.emb_dim)
-        else:
-            review_embs = nonempty_review_embs
+        # reviewlens is a list of #sentences in each review
+        reviewlens = np.array([len(review) for review in reviews])
+        review_embs = self.embed(review_sent_embs, reviewlens, self.review_emb, self.empty_review_emb)
         return review_embs
 
-    # a review is a list of list of words
+    # each review is a list of list of words
     def forward(self, reviews, summaries):
-        review_embs = self.compute_review_embs(reviews)
-        # Pdb().set_trace()
-        if self.use_summary:
-            summary_embs = self.compute_summary_embs(summaries)
-            embeddings = torch.cat([review_embs, summary_embs], dim=1)
-        else:
-            embeddings = review_embs
-        outputs = self.classifier(embeddings)
+        try:
+            review_embs = self.compute_review_embs(reviews)
+            if self.use_summary:
+                summary_embs = self.compute_summary_embs(summaries)
+                embeddings = torch.cat([review_embs, summary_embs], dim=1)
+            else:
+                embeddings = review_embs
+            outputs = self.classifier(embeddings)
+        except Exception as e:
+            print(e)
+            Pdb().set_trace()
         return F.softmax(outputs, dim=1)

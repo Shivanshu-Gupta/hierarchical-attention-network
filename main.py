@@ -59,7 +59,6 @@ def load_datasets(config, phases, logfile=None):
 
 
 def build_model(config, review_vocab, summary_vocab, logfile=None):
-    save_dir = config['save_dir']
     use_gpu = config['use_gpu']
     # Create Model
     config['model']['params']['review_vocab_size'] = len(review_vocab)
@@ -74,27 +73,32 @@ def build_model(config, review_vocab, summary_vocab, logfile=None):
         config['params']['combined_lookup'] = False
     if config['params']['use_summary'] and not config['params']['combined_lookup']:
         model.summary_lookup.weight.data.copy_(summary_vocab.vectors)
+    if use_gpu:
+        model = model.cuda()
+    return model
 
-    # Reload model from checkpoint if provided
+
+def reload(config, model, optimizer=None, logfile=None):
+    save_dir = config['save_dir']
+    config = config['model']
     best_fscore = 0
     start_epoch = 0
     if 'reload' in config:
-        reloadPath = join(save_dir, config['reload'])
-        if exists(reloadPath):
-            log("=> loading checkpoint/model found at '{0}'".format(reloadPath), logfile)
-            checkpoint = torch.load(reloadPath)
+        reload_path = join(save_dir, config['reload'])
+        if exists(reload_path):
+            log("=> loading checkpoint/model found at '{0}'".format(reload_path), logfile)
+            checkpoint = torch.load(reload_path)
             if model.__version__() != checkpoint['model_version']:
                 log('Model version mismatch: current version={}, checkpoint version={}'
                     .format(model.__version__(), checkpoint['model_version']))
             start_epoch = checkpoint['epoch']
             best_fscore = checkpoint['fscore']
             model.load_state_dict(checkpoint['state_dict'])
-            # optimizer.load_state_dict(checkpoint['optimizer'])
+            if optimizer is not None:
+                optimizer.load_state_dict(checkpoint['optimizer'])
         else:
-            log("no checkpoint/model found at '{0}'".format(reloadPath), logfile)
-    if use_gpu:
-        model = model.cuda()
-    return model, best_fscore, start_epoch
+            log("no checkpoint/model found at '{0}'".format(reload_path), logfile)
+    return model, optimizer, best_fscore, start_epoch
 
 
 def main(config):
@@ -107,8 +111,7 @@ def main(config):
     dataloaders, review_vocab, summary_vocab = load_datasets(config, phases, logfile)
 
     # Create Model
-    model, best_fscore, start_epoch = build_model(config, review_vocab, summary_vocab, logfile)
-    save_dir = config['save_dir']
+    model = build_model(config, review_vocab, summary_vocab, logfile)
 
     if config['mode'] == 'train':
         # Select Optimizer
@@ -121,6 +124,8 @@ def main(config):
         else:
             optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                                    **config['optim']['params'])
+        # Reload model from checkpoint if provided
+        model, optimizer, best_fscore, start_epoch = reload(config, model, optimizer, logfile)
         log(optimizer, logfile)
         criterion = nn.CrossEntropyLoss()
         patience = config['optim']['scheduler']['patience']
@@ -129,12 +134,14 @@ def main(config):
                                                    threshold=0.05, threshold_mode='rel', verbose=True)
         log(scheduler, logfile)
         log("Begin Training...", logfile)
-        model = train_model(model, dataloaders, criterion, optimizer, scheduler, save_dir,
+        model = train_model(model, dataloaders, criterion, optimizer, scheduler, config['save_dir'],
                             num_epochs=config['training']['n_epochs'], use_gpu=config['use_gpu'],
                             best_fscore=best_fscore, start_epoch=start_epoch, logfile=logfile)
     elif config['mode'] == 'test':
-        log('Testing on {}...'.format(config['data']['test']['jsonfile']))
-        test_model(model, dataloaders['test'], config['outputfile'], use_gpu=config['use_gpu'], logfile=logfile)
+            # Reload model from checkpoint if provided
+            model, _, _, _ = reload(config, model, logfile=logfile)
+            log('Testing on {}...'.format(config['data']['test']['jsonfile']))
+            test_model(model, dataloaders['test'], config['outputfile'], use_gpu=config['use_gpu'], logfile=logfile)
     else:
         log("Invalid config mode %s !!" % config['mode'], logfile)
 

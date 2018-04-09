@@ -30,7 +30,7 @@ def load_data(datafile):
     return data
 
 
-def dump_dataset(raw_data, outfile):
+def dump_dataset(raw_data, outfile, summary=True, tag=False, lemma=False):
     import spacy
     with open(outfile, 'w') as outf:
         nlp = spacy.load('en_core_web_sm')
@@ -38,43 +38,30 @@ def dump_dataset(raw_data, outfile):
         summ_docs = nlp.pipe(raw_data['summary'])
         for i, (review, summ, target) in enumerate(zip(review_docs, summ_docs, raw_data['target'])):
             sample = {}
+            # REVIEW
             # remove stop-words and whitespace tokens
             review_valid = [[tok for tok in sent if not tok.is_stop and tok.text.strip() != ''] for sent in review.sents]
             # remove empty sentences
             review_valid = [sent for sent in review_valid if not len(sent) == 0]
             sample['review'] = [[tok.text.lower() for tok in sent] for sent in review_valid]
-            # sample['review_pos'] = [[tok.pos for tok in sent] for sent in review_valid]
-            # sample['review_pos_'] = [[tok.pos_.lower() for tok in sent] for sent in review_valid]
-            # sample['review_lemma'] = [[tok.lemma_.lower() for tok in sent] for sent in review_valid]
+            if tag:
+                # sample['review_tag'] = [[tok.tag for tok in sent] for sent in review_valid]
+                sample['review_tag_'] = [[tok.tag_.lower() for tok in sent] for sent in review_valid]
+            if lemma:
+                sample['review_lemma'] = [[tok.lemma_.lower() for tok in sent] for sent in review_valid]
 
+            # SUMMARY
             # remove stop-words and whitespace tokens
             summary_valid = [tok for tok in summ if not tok.is_stop and tok.text.strip() != '']
             sample['summary'] = [tok.text.lower() for tok in summary_valid]
-            # sample['summary_pos'] = [tok.pos for tok in summary_valid]
-            # sample['summary_pos_'] = [tok.pos_.lower() for tok in summary_valid]
-            # sample['summary_lemma'] = [tok.lemma_.lower() for tok in summary_valid]
+            if tag:
+                # sample['summary_tag'] = [tok.tag for tok in summary_valid]
+                sample['summary_tag_'] = [tok.tag_.lower() for tok in summary_valid]
+            if lemma:
+                sample['summary_lemma'] = [tok.lemma_.lower() for tok in summary_valid]
             sample['target'] = int(target)
             outf.write(json.dumps(sample) + '\n')
             if i % 1000 == 0:
-                print(i)
-
-
-def to_lower(datafile, outfile):
-    data = [json.loads(line) for line in open(datafile).readlines()]
-    with open(outfile, 'w') as outf:
-        for i, sample in enumerate(data):
-            new_sample = {}
-            new_sample['review'] = [[w.lower() for w in sent] for sent in sample['review']]
-            # new_sample['review_pos'] = sample['review_pos']
-            # new_sample['review_pos_'] = [[w.lower() for w in sent] for sent in sample['review_pos_']]
-            # new_sample['review_lemma'] = [[w.lower() for w in sent] for sent in sample['review_lemma']]
-            new_sample['summary'] = [w.lower() for w in sample['summary']]
-            # new_sample['summary_pos'] = sample['summary_pos']
-            # new_sample['summary_pos_'] = [w.lower() for w in sample['summary_pos_']]
-            # new_sample['summary_lemma'] = [w.lower() for w in sample['summary_lemma']]
-            new_sample['target'] = sample['target']
-            outf.write(json.dumps(new_sample) + '\n')
-            if i % 10000 == 0:
                 print(i)
 
 
