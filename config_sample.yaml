@@ -1,0 +1,24 @@
+data:
+  dir: scratch
+  preprocess: false
+  review_vocab: review_vocab.pkl
+  summary_vocab: summary_vocab.pkl
+  train: {batch_size: 32, jsonfile: audio_train.json.preprocessed}
+  val: {batch_size: 32, jsonfile: audio_dev.json.preprocessed}
+  weights: [4.0, 4.0, 1.0]
+debug: false
+mode: train
+model:
+  params: {combined_lookup: true, emb_dim: 200, rnn_hidden_dim: 100, rnn_type: gru,
+    use_summ_mlp: true, use_summary: true, word_emb_dim: 200}
+  reload: checkpoint.pth.tar
+optim:
+  class: sgd
+  params: {lr: 0.01, weight_decay: 0.0005}
+  scheduler: {factor: 0.4, patience: 3}
+prefix: han
+save_dir: scratch/checkpoints/26_sgd_diff_large_gru_mlp
+seed: 23443521
+training: {n_epochs: 5, start_from_checkpoint: true}
+use_gpu: true
+verbose: true
