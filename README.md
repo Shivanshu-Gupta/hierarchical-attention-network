@@ -11,12 +11,12 @@ correspond to ratings 4-5, 1-2 and 3 respectively in the dataset.
 
 ## Organisation
 The code in the repository are organised as follows:
-- *model.py*: custom GRU
-- *train.py*: training/validation/testing code
 - *main.py*: driver code
-- *dataset.py*: custom pytorch dataset for review data
+- *model.py*: Hierachical Attention Network implementation
+- *train.py*: training/validation/testing code
 - *preprocess.py*: data preprocessing code
 - *vocab.py*: code for building vocab
+- *dataset.py*: custom pytorch dataset for review data
 - *utils.py*: logging, config generation, experiment analysis scripts
 
 ## Usage
