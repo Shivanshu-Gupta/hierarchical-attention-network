@@ -12,7 +12,7 @@ from IPython.core.debugger import Pdb
 # from preprocess import preprocess
 from dataset import ReviewsDataset
 from train import train_model, test_model
-from model2 import HAN
+from model import HAN
 from utils import log
 
 parser = argparse.ArgumentParser()

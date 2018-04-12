@@ -1,24 +1,46 @@
+mode: train   # train/test
+save_dir: scratch/checkpoints/26_sgd_diff_large_gru_mlp   # directory to save checkpoint, write logs/results, and load checkpoints from
+seed: 23443521      # random seed
+use_gpu: true       # whether to use gpu/cuda (default=false)
 data:
-  dir: scratch
-  preprocess: false
+  dir: scratch      # path to data directory to be used as prefix vocabulary files and data jsons
   review_vocab: review_vocab.pkl
   summary_vocab: summary_vocab.pkl
-  train: {batch_size: 32, jsonfile: audio_train.json.preprocessed}
-  val: {batch_size: 32, jsonfile: audio_dev.json.preprocessed}
-  weights: [4.0, 4.0, 1.0]
-debug: false
-mode: train
+  train: {
+    batch_size: 32,
+    jsonfile: audio_train.json.preprocessed     # preprocessed train data
+  }
+  val: {
+    batch_size: 32,
+    jsonfile: audio_dev.json.preprocessed       # preprocessed train data
+  }
+  weights: [4.0,4.0,1.0]      # may be used to specify class weights to tackle class imbalance
+                              # possible values:
+                              # - list of floats - directly used as class weights
+                              # - 'weighted' - use torch.utils.data.sampler.WeightedRandomSampler
+                              # - false - no class reweighting (default)
 model:
-  params: {combined_lookup: true, emb_dim: 200, rnn_hidden_dim: 100, rnn_type: gru,
-    use_summ_mlp: true, use_summary: true, word_emb_dim: 200}
-  reload: checkpoint.pth.tar
+  params: {
+    combined_lookup: true,    # use same embeddings for both review words and summary words (default=false)
+    word_emb_dim: 200,        # word embedding dimension
+    rnn_type: gru,            # rnn type used in HAN (lstm/gru)
+    rnn_hidden_dim: 100,
+    emb_dim: 200,             # dimension of embeddings computed by each layer in HAN - both sentence emb and document emb
+    use_summary: true,        # whether to use summary features (default=true)
+    use_summ_mlp: true,       # whether to pass summary emb through mlp before concatenation with review emb (default=false)
+  }
+  reload: checkpoint.pth.tar  # name of checkpoint (in save_dir) to load (use fresh model is not provided)
 optim:
-  class: sgd
-  params: {lr: 0.01, weight_decay: 0.0005}
-  scheduler: {factor: 0.4, patience: 3}
-prefix: han
-save_dir: scratch/checkpoints/26_sgd_diff_large_gru_mlp
-seed: 23443521
-training: {n_epochs: 5, start_from_checkpoint: true}
-use_gpu: true
-verbose: true
+  class: sgd                # class of optmizer (sgd/adam)
+  params: {
+    lr: 0.01,               # learning rate of optimizer (0.001 for adam, 0.01 for sgd)
+    weight_decay: 0.0005    # weight decay to use
+  }
+  scheduler: {
+    factor: 0.4,       # factor to use for torch.optim.lr_scheduler.ReduceLROnPlateau
+    patience: 3        # patience to use for torch.optim.lr_scheduler.ReduceLROnPlateau
+  }
+training: {
+  n_epochs: 5,
+  start_from_checkpoint: true   # whether to start from loaded checkpoint
+}
